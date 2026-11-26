@@ -113,14 +113,21 @@ def stability(J):
     t = np.trace(J)
     d = det(J)
     l1, l2 = eigvals(J)
+    print(l1, l2)
 
-    hyperbolic = (d == 0)
+    hyperbolic = not (d == 0)
     attractive = (l1 < 0 and l2 < 0)
     repulsive = (l1 > 0 and l2 > 0)
-    Saddle = (min(l1, l2) < 0 and max(l1, l2)>0)
+    saddle = (min(l1, l2) < 0 and max(l1, l2)>0)
+    attractive_eq = (max(l1, l2) == 0 and min(l1, l2) < 0)
+    repulsive_eq = (max(l1, l2) > 0 and min(l1, l2) == 0)
 
-    
-
+    print(f"Hyperbolic: {hyperbolic}")
+    print(f"Attractive: {attractive}")
+    print(f"Repulsive: {repulsive}")
+    print(f"Saddle: {saddle}")
+    print(f"Attractive equilibrium: {attractive_eq}")
+    print(f"Repulsive equilibrium: {repulsive_eq}")
 
 
 
