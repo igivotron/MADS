@@ -15,7 +15,6 @@ Cp = 100e-12
 
 eps = 1e-12
 
-### Q2 ###
 Is = np.array([5, 10, 600, 1000, 2000]) * 1e-6
 xs = np.linspace(eps, 1-eps, 1000)
 palette = ["#0072B2", "#009E73", "#E69F00", "#D55E00", "#CC79A7"]
@@ -25,7 +24,7 @@ def get_x_eq(x, I):
     return I*I*Roff*np.log(1/x) - Gamma0Dt * (1 + (MT-1)*x*x)
 
 def zero_x_eq(I):
-    return brentq(get_x_eq, eps, 1-eps, args=np.array([I]))
+    return brentq(get_x_eq, eps, 1-eps, args=(I,))
     # return fsolve(x_eq, x0=np.array([0.5]), args=np.array([I]))[0]
 
 def zeros_x_eq(Is):
@@ -58,8 +57,8 @@ def system(t, s, I):
     dx = (k1*v*v - Gamma0Dt/np.log(1/x))/C
     return [dv, dx]
 
-def trajectory(I, v0, x0, T=1e-6):
-    sol = solve_ivp(system, [0, T], [v0, x0], args=(I,), method="Radau", rtol=1e-8, atol=1e-12, dense_output=True)
+def trajectory(I, v0, x0, T=40e-6):
+    sol = solve_ivp(system, [0, T], [v0, x0], args=(I,), method="Radau", rtol=1e-8, atol=1e-12, dense_output=True, max_step=1e-9)
     return sol
 
 
@@ -106,7 +105,7 @@ def get_jacobian(v, x):
 def linearized(x, v, x_eq, v_eq, J):
     x_tild = x - x_eq
     v_tild = v - v_eq
-    X = np.array([x_tild, v_tild])
+    X = np.array([v_tild, x_tild])
     return J@X
 
 def stability(J, rtol=1e-12):
@@ -160,17 +159,99 @@ def plot_x_eq(Is):
     plt.show()
 
 
+styles = {
+    "Attractive node":  dict(marker="o", filled=True),
+    "Attractive focus": dict(marker="^", filled=True),
+    "Repulsive node":   dict(marker="o", filled=False),
+    "Repulsive focus":  dict(marker="^", filled=False),
+    "Saddle":           dict(marker="s", filled=False),
+    "Center":           dict(marker="D", filled=False),
+}
 
+def plot_trajectories(trajs, Is, colors, ncols=3):
+    n = len(Is)
+    nrows = int(np.ceil(n / ncols))
+    fig, axes = plt.subplots(nrows, ncols, figsize=(5*ncols, 4*nrows), squeeze=False)
+    axes = axes.ravel()
+
+    for ax, I, c in zip(axes, Is, colors):
+        for sol in trajs[I]:
+            ax.plot(sol.y[1], sol.y[0], color=c, lw=1, alpha=0.7)
+            ax.plot(sol.y[1][0], sol.y[0][0], ".", color=c)
+
+        x_s, v_s = get_equilibrium(I)
+        _, _, nature = stability(get_jacobian(v_s, x_s), rtol=1e-12)
+        st = styles.get(nature, dict(marker="x", filled=True))
+        ax.scatter(x_s, v_s, s=80, zorder=3, marker=st["marker"],
+                   facecolors=c if st["filled"] else "none",
+                   edgecolors="k", label=nature)
+
+        ax.set_xscale("log")
+        ax.set_xlabel("x"); ax.set_ylabel("v (V)")
+        ax.set_title(f"I = {I*1e6:.0f} µA")
+        ax.legend(loc="best")
+        # ax.grid()
+
+    for ax in axes[n:]: ax.axis("off")
+    fig.tight_layout()
+    plt.show()
+
+def comput_Im(v, x):
+    return (1 + (MT-1)*x*x)/ Roff * v
+
+def get_im(traj):
+    v = traj.y[0]
+    x = traj.y[1]
+    n = len(x)
+    im = np.zeros_like(v)
+    for i in range(n): im[i] = comput_Im(v[i], x[i])
+    return im
+def plot_im(trajs, Is, colors, ncols=3):
+    n = len(Is)
+    nrows = int(np.ceil(n / ncols))
+    fig, axes = plt.subplots(nrows, ncols, figsize=(5*ncols, 4*nrows), squeeze=False)
+    axes = axes.ravel()
+
+    for ax, I, c in zip(axes, Is, colors):
+        for sol in trajs[I]:
+            im = get_im(sol)
+            ax.plot(sol.y[0], im, color=c, lw=1, alpha=0.7)
+            ax.plot(sol.y[0][0], im[0], ".", color=c)
+
+        ax.set_xscale("log")
+        ax.set_xlabel("v (V)"); ax.set_ylabel(r"$i_M$ (A)")
+        ax.set_title(f"I = {I*1e6:.0f} µA")
+        ax.legend(loc="best")
+    for ax in axes[n:]: ax.axis("off")
+    fig.tight_layout()
+    plt.show()
+
+### Q2 ###
 # plot_x_eq(Is)
 x_eq, v_eq = get_equilibriums(Is)
-# print_eq(x_eq, v_eq)
-J0 = get_jacobian(v_eq[0], x_eq[0])
-J1 = get_jacobian(v_eq[1], x_eq[1])
-J2 = get_jacobian(v_eq[2], x_eq[2])
-J3 = get_jacobian(v_eq[3], x_eq[3])
+# # print_eq(x_eq, v_eq)
+# # plot_random_trajectories(Is[0], palette10)
+# J0 = get_jacobian(v_eq[0], x_eq[0])
+# J1 = get_jacobian(v_eq[1], x_eq[1])
+# J2 = get_jacobian(v_eq[2], x_eq[2])
+# J3 = get_jacobian(v_eq[3], x_eq[3])
+# J4 = get_jacobian(v_eq[4], x_eq[4])
+# stability(J0)
+# stability(J1)
+# stability(J2)
+# stability(J3)
+# stability(J4)
 
+### Q3 ###
+I0 = 5e-6
+I1 = 20e-6
+v0 = 0.5
+x0 = 1e-6
 
-stability(J0)
-stability(J1)
-stability(J2)
-stability(J3)
+traj0 = trajectory(I0, v0, x0, T=60e-6)
+traj1 = trajectory(I1, v0, x0, T=10e-6) # Does the solution cycle ? Seems to when we increase the simulation time
+
+trajs = {I0: [traj0], I1: [traj1]}
+plot_trajectories(trajs, [I0, I1], [palette[0], palette[1]], ncols=2)
+plot_im(trajs, [I0, I1], [palette[0], palette[1]], ncols=2)
+
