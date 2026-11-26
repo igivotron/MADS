@@ -91,7 +91,7 @@ def print_eq(x_eq, v_eq):
         print(f"({x_eq[i]*1e6:.6f}, {v_eq[i]:.6f})")
     print(" ")
 
-def get_jacobian(x, v):
+def get_jacobian(v, x):
     df1dx = -2 * (MT-1)*x*v/(Cp * Roff)
     df1dv = -(1+(MT-1)*x*x) / (Cp * Roff)
     df2dx = (2*(MT-1)*x*v*v/Roff - Gamma0Dt/(x * np.log(1/x)**2))/C
@@ -109,25 +109,34 @@ def linearized(x, v, x_eq, v_eq, J):
     X = np.array([x_tild, v_tild])
     return J@X
 
-def stability(J):
-    t = np.trace(J)
-    d = det(J)
-    l1, l2 = eigvals(J)
-    print(l1, l2)
+def stability(J, rtol=1e-12):
+    lam = eigvals(J)
+    re, im = lam.real, lam.imag
+    tol = rtol * np.max(np.abs(lam))
 
-    hyperbolic = not (d == 0)
-    attractive = (l1 < 0 and l2 < 0)
-    repulsive = (l1 > 0 and l2 > 0)
-    saddle = (min(l1, l2) < 0 and max(l1, l2)>0)
-    attractive_eq = (max(l1, l2) == 0 and min(l1, l2) < 0)
-    repulsive_eq = (max(l1, l2) > 0 and min(l1, l2) == 0)
+    attract_focus, rep_focus, center = 0, 0, 0
+    attract_node, rep_node, saddle = 0, 0, 0
+    non_hyper = 0
 
-    print(f"Hyperbolic: {hyperbolic}")
-    print(f"Attractive: {attractive}")
-    print(f"Repulsive: {repulsive}")
-    print(f"Saddle: {saddle}")
-    print(f"Attractive equilibrium: {attractive_eq}")
-    print(f"Repulsive equilibrium: {repulsive_eq}")
+    complexe = np.max(np.abs(im)) > tol
+    hyperbolic = bool(np.all(np.abs(re) > tol))
+
+    if complexe:
+        attract_focus = (re[0] < -tol)
+        rep_focus = (re[0] > tol)
+        center = not (attract_focus or rep_focus)
+    else:
+        attract_node = (np.all(re < -tol))
+        rep_node = (np.all(re > tol))
+        saddle =  (re.min() < -tol and re.max() > tol)
+        non_hyper = not (attract_node + rep_node + saddle)
+
+    nature = "Attractive focus" * attract_focus + "Repulsive focus" * rep_focus + "Center" * center + "Attractive node" * attract_node + "Repulsive node" * rep_node + "Saddle" * saddle + "Non hyperbolic" * non_hyper
+    print("valeurs propres: ", lam)
+    print("hyperbolique: ", hyperbolic)
+    print("nature: ", nature)
+    print(" ")
+    return lam, hyperbolic, nature
 
 
 
@@ -155,5 +164,13 @@ def plot_x_eq(Is):
 # plot_x_eq(Is)
 x_eq, v_eq = get_equilibriums(Is)
 # print_eq(x_eq, v_eq)
-J = get_jacobian(x_eq[0], v_eq[0])
-stability(J)
+J0 = get_jacobian(v_eq[0], x_eq[0])
+J1 = get_jacobian(v_eq[1], x_eq[1])
+J2 = get_jacobian(v_eq[2], x_eq[2])
+J3 = get_jacobian(v_eq[3], x_eq[3])
+
+
+stability(J0)
+stability(J1)
+stability(J2)
+stability(J3)
